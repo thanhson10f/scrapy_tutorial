@@ -1,5 +1,6 @@
 import scrapy
 import json
+import csv
 
 
 class QuotesSpider(scrapy.Spider):
@@ -9,14 +10,16 @@ class QuotesSpider(scrapy.Spider):
             }
 
     def start_requests(self):
-        urls = [
-                'https://mining.icheck.com.vn/popular/category?parent_category_id=13&limit=500'
-                ]
-        for url in urls:
-            yield scrapy.Request(url=url, callback=self.parse_category, headers={
-                'icheck-id': 'i-1494218194088',
-                'Authorization': 'Basic aWNoZWNrOmlZQUYmO2NCZSNHM2F+RDojaGVjaw=='
-                })
+        with open('unknown_product.csv', 'rb') as f:
+            code_list = csv.reader(f)
+
+            for code in code_list:
+                print(code[0])
+                url = 'https://lb1.icheck.com.vn/scan/{}?scan=0'.format(code[0])
+                yield scrapy.Request(url=url, callback=self.parse, headers={
+                    'icheck-id': 'i-1494218194088',
+                    'Authorization': 'Basic aWNoZWNrOmlZQUYmO2NCZSNHM2F+RDojaGVjaw=='
+                    })
 
     def parse_related(self, response):
         json_response = json.loads(response.body_as_unicode())
@@ -44,19 +47,11 @@ class QuotesSpider(scrapy.Spider):
     def parse(self, response):
         json_response = json.loads(response.body_as_unicode())
         # print json_response['data']['product_name']
-        code = json_response['data']['gtin_code']
+        if 'gtin_code' in json_response['data'] and json_response['data']['product_name']:
+            yield json_response['data']
+        # code = json_response['data']['gtin_code']
         # yield {
         #        'code': code,
         #        'product_name': json_response['data']['product_name'],
         #        'price_default': json_response['data']['price_default']
         #        }
-        yield json_response['data']
-        related_url = 'https://mining.icheck.com.vn/scan/related/{0}'.format(code)
-        yield scrapy.Request(url=related_url, callback=self.parse_related, headers={
-                'icheck-id': 'i-1494218194088',
-                'Authorization': 'Basic aWNoZWNrOmlZQUYmO2NCZSNHM2F+RDojaGVjaw=='
-                })
-#        next_page = response.css('li.next a::attr(href)').extract_first()
-#        if next_page is not None:
-#            next_page = response.urljoin(next_page)
-#            yield scrapy.Request(next_page, callback = self.parse)
